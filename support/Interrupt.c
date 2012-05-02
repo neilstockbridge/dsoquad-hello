@@ -5,13 +5,6 @@
 #include "Interrupt.h"
 #include "BIOS.h"
 
-vu32 vu32Tick;
-vu8  Cursor_Cnt, Key_Wait_Cnt, Key_Repeat_Cnt, Key_Buffer, Cnt_mS, Cnt_20mS;
-vu8  Twink, Blink;
-u8   Volume=20, Light;
-vu16 Delay_Cnt, Beep_mS, Key_Status_Last, Sec_Cnt, PD_Cnt;
-vu32 Wait_Cnt; 
-
 void NMIException(void)
 {}
 
@@ -77,9 +70,9 @@ void _HardFaultException()
     __Point_SCR(0, 0);
     __LCD_Fill(&color,240*200);
     __LCD_Fill(&color,240*200);
-    
+
     __Set(BEEP_VOLUME, 0);
-    
+
     putstring("                    HARDFAULT                ");
 
     putstring("\nSP: ");
@@ -98,13 +91,13 @@ void _HardFaultException()
     puthex((char*) (sp + 3), sizeof(void*));
     putstring(", r12 ");
     puthex((char*) (sp + 4), sizeof(void*));
-    
+
     putstring("\nSCB HFSR: ");
     puthex((char*) &(SCB->HFSR), sizeof(SCB->HFSR));
-    
+
     putstring("\nSCB CFSR: ");
     puthex((char*) &(SCB->CFSR), sizeof(SCB->CFSR));
-    
+
     putstring("\nSTACK DUMP:\n");
     for (int i = 0; i < 32; i++)
     {
@@ -114,9 +107,9 @@ void _HardFaultException()
         else
             putstring(" ");
     }
-    
+
     putstring("\n");
-    
+
     while (1) {}
 }
 
@@ -144,46 +137,11 @@ void USB_LP_CAN_RX0_IRQHandler(void)
   __USB_Istr();
 }
 
+// This handler must remain since the BIOS sets up timer 3 to cause this
+// interrupt when it overflows and it would hardfault without a handler.
+//
 void TIM3_IRQHandler(void)
-{ 
-//  static char tmp[2] = {'A', 0};
-  u8 KeyCode;
-  vu32Tick++;
-  __Set(KEY_IF_RST, 0);                      //Clear TIM3 interrupt flag
-  
-  if(Delay_Cnt > 0) Delay_Cnt--;
-  
-  if(Cnt_mS > 0)
-      Cnt_mS--;
-  else {                                     //Read keys per 20mS
-    Cnt_mS =20;
-    if(Wait_Cnt >0)  Wait_Cnt--;
-    if(Beep_mS >=20)  Beep_mS   -= 20;
-    else              __Set(BEEP_VOLUME, 0); // Beep off
-    if(Cnt_20mS < 50) Cnt_20mS++;
-    else {                                   // Do it pre sec.
-      Cnt_20mS = 0;
-      __Set(BETTERY_DT, 1);                  //Battery Detect
-      Sec_Cnt++;
-      if(PD_Cnt > 0) PD_Cnt--;
-    }
-    Cursor_Cnt++;
-    if(Cursor_Cnt >= 12) {                   //12*20mS=240mS
-//	  __Display_Str(0, 0, 0x8888, 0, tmp);
-//	  if (++tmp[0] > 'Z')
-//		tmp[0] = 'A';
-
-      Cursor_Cnt=0;
-      Twink=!Twink;
-      Blink = 1;
-    }
-    if(Key_Wait_Cnt)    Key_Wait_Cnt--;
-    if(Key_Repeat_Cnt)  Key_Repeat_Cnt--;
-    KeyCode=0;//Read_Keys();
-    if(KeyCode !=0) {
-      Key_Buffer = KeyCode;
-      //__Set(BEEP_VOLUME, 5*(Title[VOLUME][CLASS].Value-1));// Volume
-      Beep_mS = 60; 
-    }
-  }
+{
+  __Set(KEY_IF_RST, 0);  //Clear TIM3 interrupt flag
 }
+
